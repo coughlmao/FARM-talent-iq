@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+from fastapi import APIRouter, HTTPException
 
-app = FastAPI()
+router = APIRouter()
 
-@app.get("/")
+@router.get("/")
 async def homePage():
     return { "message": "Home Page" }
