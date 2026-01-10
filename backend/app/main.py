@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
-from .core.db import connectDB, closeDB
-from .api.routes import router
+from .lib.db import connectDB, closeDB
+from .routes.chats import router as chatRoutes
+from .lib.config import settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,6 +16,15 @@ async def lifespan(app: FastAPI):
     yield
     await closeDB()
 
+
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.CLIENT_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(chatRoutes, prefix="/api/chats")
