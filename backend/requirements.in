@@ -1,4 +1,5 @@
 fastapi[standard]
 pymongo
 beanie
-python-dotenv
+clerk-backend-api
+python-jose
