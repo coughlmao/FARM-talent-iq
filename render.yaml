@@ -3,7 +3,7 @@ services:
     name: farm-app
     runtime: python
     rootDir: backend
-    buildCommnad: |
+    buildCommand: |
       cd ../frontend
       npm install
       npm run build
