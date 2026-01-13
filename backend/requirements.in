@@ -3,3 +3,5 @@ pymongo
 beanie
 clerk-backend-api
 python-jose
+pip-tools
+gunicorn

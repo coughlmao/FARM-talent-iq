@@ -7,7 +7,7 @@ from app.lib.config import settings
 _jwksCache = None
 
 
-async def getClerkJwks():
+async def get_clerk_Jwks():
     """
     Fetch JWKS from Clerk Frontend API with caching.
     Uses async httpx instead of requests for non-blocking calls.
@@ -22,7 +22,7 @@ async def getClerkJwks():
     return _jwksCache
 
 
-async def verifyClerkToken(authorization: str = Header(...)):
+async def verify_clerk_token(authorization: str = Header(...)):
     """
     FastAPI dependency to verify Clerk JWT token from Authorization header.
     Returns the decoded payload if valid.
@@ -33,7 +33,7 @@ async def verifyClerkToken(authorization: str = Header(...)):
     token = authorization.split(" ")[1]
 
     try:
-        jwks = await getClerkJwks()
+        jwks = await get_clerk_Jwks()
         payload = jwt.decode(
             token, key=jwks, algorithms=["RS256"], options={"verify_aud": False}
         )
