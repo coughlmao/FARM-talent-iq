@@ -4,16 +4,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    # Server Port Number
+    # Server Configuration
     PORT = os.getenv("PORT")
+    ENV_TYPE = os.getenv("ENV_TYPE")
 
-    # Database Connection String
+    # Database Configuration
     MONGO_URI = os.getenv("MONGO_URI")
+    MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")
 
     # Clerk Authentication
     CLERK_FRONTEND_API = os.getenv("CLERK_FRONTEND_API")
 
-    # Frontend Url
+    # Frontend URL
     CLIENT_URL = os.getenv("CLIENT_URL")
 
 

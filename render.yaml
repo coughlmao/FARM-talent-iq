@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: farm-app
+    runtime: python
+    rootDir: backend
+    buildCommnad: |
+      cd frontend
+      npm install
+      npm run build
+      cd ../backend
+      pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn.conf.py app.main:app
+    envVars:
+      - key: ENV
+        value: production
