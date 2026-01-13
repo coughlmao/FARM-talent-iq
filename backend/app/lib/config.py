@@ -18,5 +18,8 @@ class Settings:
     # Frontend URL
     CLIENT_URL = os.getenv("CLIENT_URL")
 
+    # Inngest Configuration
+    INNGEST_SIGNING_KEY = os.getenv("INNGEST_SIGNING_KEY")
+    INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
 
 settings = Settings()
