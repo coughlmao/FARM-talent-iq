@@ -33,7 +33,12 @@ app.include_router(chatRoutes, prefix="/api/chats")
 
 # ---------- FRONTEND ----------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_BUILD_PATH = os.path.join(BASE_DIR, "../../frontend/dist")
+FRONTEND_BUILD_PATH = os.path.abspath(
+    os.path.join(BASE_DIR, "../../../frontend/dist")
+)
+
+print("FRONTEND_BUILD_PATH =", FRONTEND_BUILD_PATH)
+print("FILES =", os.listdir(FRONTEND_BUILD_PATH))
 
 if settings.ENV_TYPE == "production":
     app.mount(
