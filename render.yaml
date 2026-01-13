@@ -4,7 +4,7 @@ services:
     runtime: python
     rootDir: backend
     buildCommnad: |
-      cd frontend
+      cd ../frontend
       npm install
       npm run build
       cd ../backend
