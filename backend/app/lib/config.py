@@ -21,5 +21,6 @@ class Settings:
     # Inngest Configuration
     INNGEST_SIGNING_KEY = os.getenv("INNGEST_SIGNING_KEY")
     INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
+    # INNGEST_DEV = os.getenv("INNGEST_DEV")
 
 settings = Settings()
