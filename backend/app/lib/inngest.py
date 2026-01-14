@@ -1,4 +1,4 @@
-from inngest import Inngest, Context
+from inngest import Inngest, Context, TriggerEvent
 
 from app.models import User
 from app.lib.db import connect_db
@@ -10,7 +10,7 @@ inngest_client = Inngest(
 
 
 @inngest_client.create_function(
-    fn_id="sync-user", trigger={"event": "clerk/user.created"}
+    fn_id="sync-user", trigger=TriggerEvent(event="clerk/user.created")
 )
 async def sync_user(ctx: Context):
     # This block is now durable and retriable
@@ -33,7 +33,7 @@ async def sync_user(ctx: Context):
 
 
 @inngest_client.create_function(
-    fn_id="delete-user-from-db", trigger={"event": "clerk/user.deleted"}
+    fn_id="delete-user-from-db", trigger=TriggerEvent(event="clerk/user.deleted")
 )
 async def delete_user(ctx: Context):
     async def remove_user():
