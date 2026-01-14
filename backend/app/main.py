@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     try:
         # Wrap the DB connection in a timeout (e.g., 10 seconds)
         # This prevents the "Waiting for application startup" hang
-        await asyncio.wait_for(connect_db(), timeout=10.0)
+        await asyncio.wait_for(connect_db(), timeout=60.0)
         print("DEBUG: Database connected successfully!")
     except asyncio.TimeoutError:
         print("ERROR: Database connection timed out during startup!")
