@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import os
 import inngest.fast_api
+import asyncio
 
 from .lib.inngest import inngest_client, sync_user, delete_user
 from .lib.db import connect_db, close_db
@@ -13,7 +14,19 @@ from .lib.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect_db()
+    print("DEBUG: Starting application lifespan...")
+    try:
+        # Wrap the DB connection in a timeout (e.g., 10 seconds)
+        # This prevents the "Waiting for application startup" hang
+        await asyncio.wait_for(connect_db(), timeout=10.0)
+        print("DEBUG: Database connected successfully!")
+    except asyncio.TimeoutError:
+        print("ERROR: Database connection timed out during startup!")
+        # Raising an error here allows Render to see the crash instead of hanging 502
+        raise RuntimeError("Database connection timeout")
+    except Exception as e:
+        print(f"ERROR: Startup failed with exception: {e}")
+        raise e
     yield
     await close_db()
 
@@ -32,11 +45,7 @@ app.add_middleware(
 # Inngest Serve - Registering functions at /api/inngest
 # The SDK automatically handles the POST and GET handshakes
 inngest.fast_api.serve(
-    app,
-    inngest_client,
-    [sync_user, delete_user],
-    
-    serve_path="/api/inngest"
+    app, inngest_client, [sync_user, delete_user], serve_path="/api/inngest"
 )
 
 # API routes FIRST
