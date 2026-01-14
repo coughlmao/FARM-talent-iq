@@ -59,19 +59,28 @@ print("FRONTEND_BUILD_PATH =", FRONTEND_BUILD_PATH)
 print("FILES =", os.listdir(FRONTEND_BUILD_PATH))
 
 if settings.ENV_TYPE == "production":
-    # root
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    FRONTEND_BUILD_PATH = os.path.abspath(os.path.join(BASE_DIR, "../../frontend/dist"))
+    INDEX_PATH = os.path.join(FRONTEND_BUILD_PATH, "index.html")
+
+    # Serve the React/Vite root
     @app.api_route("/", methods=["GET", "HEAD"])
     async def root():
-        return FileResponse(os.path.join(FRONTEND_BUILD_PATH, "index.html"))
+        if os.path.exists(INDEX_PATH):
+            return FileResponse(INDEX_PATH)
+        return {"error": "Frontend build not found"}
 
-    # catch-all for SPA routing + assets
+    # Catch-all for SPA routing (React Router / Vue Router)
     @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa(path: str):
         file_path = os.path.join(FRONTEND_BUILD_PATH, path)
 
-        # serve the file if it exists
+        # 1. Serve actual files (js, css, images)
         if os.path.exists(file_path) and not os.path.isdir(file_path):
             return FileResponse(file_path)
 
-        # otherwise fallback to index.html
-        return FileResponse(os.path.join(FRONTEND_BUILD_PATH, "index.html"))
+        # 2. Fallback to index.html for all other paths
+        if os.path.exists(INDEX_PATH):
+            return FileResponse(INDEX_PATH)
+        
+        return {"error": "File not found and index.html missing"}
