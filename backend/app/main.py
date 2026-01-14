@@ -20,6 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# CORS must be handled before routing
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.CLIENT_URL],
@@ -28,6 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Inngest Serve - Registering functions at /api/inngest
+# The SDK automatically handles the POST and GET handshakes
 inngest.fast_api.serve(
     app,
     inngest_client,
@@ -48,12 +51,12 @@ print("FILES =", os.listdir(FRONTEND_BUILD_PATH))
 
 if settings.ENV_TYPE == "production":
     # root
-    @app.get("/")
+    @app.api_route("/", methods=["GET", "HEAD"])
     async def root():
         return FileResponse(os.path.join(FRONTEND_BUILD_PATH, "index.html"))
 
     # catch-all for SPA routing + assets
-    @app.get("/{path:path}")
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa(path: str):
         file_path = os.path.join(FRONTEND_BUILD_PATH, path)
 
