@@ -1,8 +1,9 @@
 from inngest import Inngest, Context, TriggerEvent
+from datetime import datetime, timezone
+from beanie.operators import Set
 
 from app.models import User
 from app.lib.db import connect_db
-from .config import settings
 
 inngest_client = Inngest(
     app_id="farm-talent-iq",
@@ -13,21 +14,35 @@ inngest_client = Inngest(
     fn_id="sync-user", trigger=TriggerEvent(event="clerk/user.created")
 )
 async def sync_user(ctx: Context):
-    # This block is now durable and retriable
     async def save_user():
         await connect_db()
-        data = ctx.event.data  # Access as attribute
+        data = ctx.event.data
 
         email = data["email_addresses"][0]["email_address"]
-        name = f'{data.get("first_name","")} {data.get("last_name","")}'.strip()
+        first = data.get("first_name", "")
+        last = data.get("last_name", "")
+        name = f"{first} {last}".strip() or email.split("@")[0]
 
-        user = User(
-            clerk_id=data["id"],
-            email=email,
-            name=name,
-            profileImage=data.get("image_url", ""),
+        # Use find_one + upsert
+        # This checks for the ID, and if found, updates the fields inside Set()
+        # If NOT found, it creates a new record using the on_insert Document
+        await User.find_one(User.clerk_id == data["id"]).upsert(
+            Set(
+                {
+                    User.email: email,
+                    User.name: name,
+                    User.profile_image: data.get("image_url", ""),
+                    User.updated_at: datetime.now(timezone.utc),
+                }
+            ),
+            on_insert=User(
+                clerk_id=data["id"],
+                email=email,
+                name=name,
+                profile_image=data.get("image_url", ""),
+            ),
         )
-        return await user.insert()
+        return {"status": "success", "user_id": data["id"]}
 
     await ctx.step.run("upsert-user-to-db", save_user)
 
