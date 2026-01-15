@@ -1,10 +1,12 @@
-from beanie import Document
+from beanie import Document, Indexed
 from pydantic import EmailStr, Field
 from datetime import datetime, timezone
+from typing import Annotated  # for modern Python type hinting
 
 
 class User(Document):
-    clerk_id: str = Field(..., unique=True)
+    # Use Annotated with Indexed for the most reliable index creation
+    clerk_id: Annotated[str, Indexed(unique=True)]
     email: EmailStr
     name: str
     profile_image: str = ""
