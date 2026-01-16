@@ -6,3 +6,4 @@ python-jose
 pip-tools
 gunicorn
 inngest
+getstream
