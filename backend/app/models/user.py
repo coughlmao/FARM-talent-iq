@@ -16,3 +16,4 @@ class User(Document):
 
     class Settings:
         name = "users"  # MongoDB collection name
+        validate_on_save=True
