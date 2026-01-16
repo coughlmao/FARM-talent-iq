@@ -1,0 +1,8 @@
+beanie
+clerk-backend-api
+fastapi[standard]
+getstream
+gunicorn
+inngest
+pymongo
+python-jose

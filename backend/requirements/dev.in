@@ -1,0 +1,4 @@
+-r base.in # Constraints: Ensure dev-deps don't conflict with prod
+pip-tools
+pre-commit
+ruff
