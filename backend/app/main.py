@@ -1,15 +1,16 @@
-from fastapi import FastAPI, Request
+import asyncio
+import os
 from contextlib import asynccontextmanager
+
+import inngest.fast_api
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import os
-import inngest.fast_api
-import asyncio
 
-from .lib.inngest import inngest_client, sync_user, delete_user
-from .lib.db import connect_db, close_db
-from .routes.chats import router as chatRoutes
 from .lib.config import settings
+from .lib.db import close_db, connect_db
+from .lib.inngest import delete_user, inngest_client, sync_user
+from .routes.chats import router as chatRoutes
 
 
 @asynccontextmanager
@@ -20,10 +21,10 @@ async def lifespan(app: FastAPI):
         # This prevents the "Waiting for application startup" hang
         await asyncio.wait_for(connect_db(), timeout=60.0)
         print("DEBUG: Database connected successfully!")
-    except asyncio.TimeoutError:
+    except TimeoutError as err:
         print("ERROR: Database connection timed out during startup!")
         # Raising an error here allows Render to see the crash instead of hanging 502
-        raise RuntimeError("Database connection timeout")
+        raise RuntimeError("Database connection timeout") from err
     except Exception as e:
         print(f"ERROR: Startup failed with exception: {e}")
         raise e
@@ -82,5 +83,5 @@ if settings.ENV_TYPE == "production":
         # 2. Fallback to index.html for all other paths
         if os.path.exists(INDEX_PATH):
             return FileResponse(INDEX_PATH)
-        
+
         return {"error": "File not found and index.html missing"}

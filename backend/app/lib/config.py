@@ -1,7 +1,9 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
 
 class Settings:
     # Server Configuration
@@ -22,8 +24,9 @@ class Settings:
     INNGEST_SIGNING_KEY = os.getenv("INNGEST_SIGNING_KEY")
     INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
     # INNGEST_DEV = os.getenv("INNGEST_DEV")
-    
-    #Initialise clerk secret key
-    CLERK_SECRET_KEY=os.getenv("CLERK_SECRET_KEY")
-    
+
+    # Initialise clerk secret key
+    CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+
+
 settings = Settings()

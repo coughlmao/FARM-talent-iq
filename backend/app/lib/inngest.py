@@ -1,9 +1,10 @@
-from inngest import Inngest, Context, TriggerEvent
-from datetime import datetime, timezone
-from beanie.operators import Set
+from datetime import UTC, datetime
 
-from app.models import User
+from beanie.operators import Set
+from inngest import Context, Inngest, TriggerEvent
+
 from app.lib.db import connect_db
+from app.models import User
 
 inngest_client = Inngest(
     app_id="farm-talent-iq",
@@ -32,7 +33,7 @@ async def sync_user(ctx: Context):
                     User.email: email,
                     User.name: name,
                     User.profile_image: data.get("image_url", ""),
-                    User.updated_at: datetime.now(timezone.utc),
+                    User.updated_at: datetime.now(UTC),
                 }
             ),
             on_insert=User(

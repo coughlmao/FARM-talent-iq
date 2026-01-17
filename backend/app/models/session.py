@@ -1,39 +1,43 @@
-from datetime import datetime,timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
-from .user import User
-from beanie import Document,Link
+
+from beanie import Document, Link
 from pydantic import Field
 
-#Defining Enums
-class Difficulty(str,Enum):
-    easy="easy"
-    medium="medium" 
-    hard="hard"
-    
-class SessionStatus(str,Enum):
-    active="active"
-    completed="completed"
+from .user import User
+
+
+# Defining Enums
+class Difficulty(str, Enum):
+    easy = "easy"
+    medium = "medium"
+    hard = "hard"
+
+
+class SessionStatus(str, Enum):
+    active = "active"
+    completed = "completed"
+
 
 class Session(Document):
-    problem:str
-    difficulty:Difficulty
-    
-#References(Equivalent to ref:"User")
-#Link handles MongoDB ObjectIDs and DB preferences automatically
+    problem: str
+    difficulty: Difficulty
 
-    host:Link["User"]
-    participant:Optional[Link["User"]]=None
+    # References(Equivalent to ref:"User")
+    # Link handles MongoDB ObjectIDs and DB preferences automatically
 
-    status:SessionStatus=SessionStatus.active
+    host: Link["User"]
+    participant: Link["User"] | None = None
 
-#Stream video call ID
-    call_id:str=Field(default="",alias="callId")
+    status: SessionStatus = SessionStatus.active
 
-#TimeStamps(Equivalent to {timestamps:true})
-    created_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc))
-    updated_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc))
+    # Stream video call ID
+    call_id: str = Field(default="", alias="callId")
+
+    # TimeStamps(Equivalent to {timestamps:true})
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:
-        name="sessions"
-        validate_on_save=True
+        name = "sessions"
+        validate_on_save = True

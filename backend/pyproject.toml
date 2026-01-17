@@ -1,0 +1,17 @@
+# pyproject.toml
+
+[tool.ruff]
+# Target Python version
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: Pyflakes, I: isort (imports), UP: pyupgrade
+# B: bugbear, SIM: simplifier, C4: flake8-comprehensions
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+ignore = ["E501"] # Ignore line-length in linter (handled by formatter)
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
