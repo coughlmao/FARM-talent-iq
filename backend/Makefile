@@ -7,6 +7,7 @@
 # Sync your local environment with the locked dependencies
 install:
 	pip install -r requirements/dev.txt
+	pre-commit install
 
 # Convert requirements.in files into locked requirements.txt files
 # Run this whenever you add or update a library

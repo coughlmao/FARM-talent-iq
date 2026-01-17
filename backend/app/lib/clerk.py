@@ -1,6 +1,6 @@
-from fastapi import Header, HTTPException
-from jose import jwt, JWTError
 import httpx
+from fastapi import Header, HTTPException
+from jose import JWTError, jwt
 
 from app.lib.config import settings
 
@@ -38,5 +38,5 @@ async def verify_clerk_token(authorization: str = Header(...)):
             token, key=jwks, algorithms=["RS256"], options={"verify_aud": False}
         )
         return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError as err:
+        raise HTTPException(status_code=401, detail="Invalid token") from err

@@ -1,12 +1,12 @@
-import os
 import gc
+import os
 
 # 1. Port & Binding
 port = os.getenv("PORT", "10000")
 bind = f"0.0.0.0:{port}"
 
 # 2. Worker Configuration (Keep at 1 for 512MB limit)
-workers = 1 
+workers = 1
 worker_class = "uvicorn.workers.UvicornWorker"
 
 # 3. MEMORY OPTIMIZATIONS
@@ -19,10 +19,12 @@ preload_app = True
 max_requests = 100
 max_requests_jitter = 20
 
+
 # 4. Force Garbage Collection
 # Freezes the generational GC to improve memory sharing between processes.
 def on_starting(server):
     gc.freeze()
+
 
 # 5. Standard Configs
 timeout = 120
