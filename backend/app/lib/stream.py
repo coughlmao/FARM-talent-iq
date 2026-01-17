@@ -4,7 +4,11 @@ from getstream.models import UserRequest
 from .config import settings
 
 # Unified client for both chat and video
-client = Stream(api_key=settings.STREAM_API_KEY, api_secrets=settings.STREAM_API_SECRET)
+client = Stream(
+    api_key=settings.STREAM_API_KEY,
+    api_secrets=settings.STREAM_API_SECRET,
+    use_async=True,
+)
 
 # Feature instance
 chat_features = client.chat
