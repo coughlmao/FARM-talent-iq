@@ -11,6 +11,7 @@ from .lib.config import settings
 from .lib.db import close_db, connect_db
 from .lib.inngest import delete_user, inngest_client, sync_user
 from .routes.chats import router as chatRoutes
+from .routes.sessions import router as sessionRoutes
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ inngest.fast_api.serve(
 
 # API routes FIRST
 app.include_router(chatRoutes, prefix="/api/chats")
+app.include_router(sessionRoutes, prefix="/api/sessions")
 
 # ---------- FRONTEND ----------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

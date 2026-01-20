@@ -6,8 +6,7 @@ from .config import settings
 # Unified client for both chat and video
 client = Stream(
     api_key=settings.STREAM_API_KEY,
-    api_secrets=settings.STREAM_API_SECRET,
-    use_async=True,
+    api_secret=settings.STREAM_API_SECRET,
 )
 
 # Feature instance
