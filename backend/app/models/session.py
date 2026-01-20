@@ -20,7 +20,7 @@ class SessionStatus(str, Enum):
 
 
 class Session(Document):
-    problem: str
+    problem_title: str = Field(alias="problemTitle")
     difficulty: Difficulty
 
     # References(Equivalent to ref:"User")

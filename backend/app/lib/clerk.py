@@ -1,42 +1,29 @@
 import httpx
-from fastapi import Header, HTTPException
-from jose import JWTError, jwt
+from jose import jwt
 
 from app.lib.config import settings
 
-_jwksCache = None
+_jwks_cache = None
 
 
-async def get_clerk_Jwks():
+async def get_clerk_Jwks(token: str):
     """
     Fetch JWKS from Clerk Frontend API with caching.
     Uses async httpx instead of requests for non-blocking calls.
     """
-    global _jwksCache
-    if _jwksCache is None:
+    global _jwks_cache
+    if _jwks_cache is None:
         url = f"{settings.CLERK_FRONTEND_API}/.well-known/jwks.json"
         async with httpx.AsyncClient() as client:
             res = await client.get(url, timeout=10)
             res.raise_for_status()  # raise exception for non-200 status
-            _jwksCache = res.json()
-    return _jwksCache
+            _jwks_cache = res.json()
 
+    unverified_header = jwt.get_unverified_header(token)
+    kid = unverified_header.get("kid")
 
-async def verify_clerk_token(authorization: str = Header(...)):
-    """
-    FastAPI dependency to verify Clerk JWT token from Authorization header.
-    Returns the decoded payload if valid.
-    """
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
+    for key in _jwks_cache.get("keys", []):
+        if key.get("kid") == kid:
+            return key
 
-    token = authorization.split(" ")[1]
-
-    try:
-        jwks = await get_clerk_Jwks()
-        payload = jwt.decode(
-            token, key=jwks, algorithms=["RS256"], options={"verify_aud": False}
-        )
-        return payload
-    except JWTError as err:
-        raise HTTPException(status_code=401, detail="Invalid token") from err
+    raise Exception("Public key not found in JWKS")

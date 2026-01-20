@@ -2,18 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from ..lib.clerk import verify_clerk_token
+from ..controllers.chats import get_unified_stream_token
+from ..lib.protect_route import protect_route
+from ..models import User
 
 router = APIRouter()
 
-UserDep = Annotated[dict, Depends(verify_clerk_token)]
+AuthDep = Annotated[User, Depends(protect_route)]
 
 
-@router.get("/")
-async def getChats(user: UserDep):
-    return {"message": f"Hello {user['sub']}! Here are your chats."}
-
-
-@router.post("/")
-async def createChat(user: UserDep, content: str = "default"):
-    return {"message": f"Chat created by {user['sub']}", "content": content}
+@router.get("/token")
+async def get_unified_stream_token_route(current_user: AuthDep):
+    return get_unified_stream_token()

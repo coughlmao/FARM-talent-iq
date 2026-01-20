@@ -16,20 +16,29 @@ chat_features = client.chat
 video_features = client.video
 
 
+def create_stream_token(user_id: str):
+    """
+    Generates a Stream-specific JWT.
+    This is what fixes the 'Token signature is invalid' error.
+    """
+    # The unified client has a create_token method
+    return client.create_token(user_id)
+
+
 # Upsert Stream User
 async def upsert_stream_user(user_data: dict):
     try:
-        client.upsert_users(
-            UserRequest(
-                id=user_data.get("id"),
-                name=user_data.get("name"),
-                image=user_data.get("image"),
-                role=user_data.get("role", "user"),
-            )
+        user_req = UserRequest(
+            id=str(user_data.get("id")),
+            name=str(user_data.get("name") or "Anonymous"),
+            image=str(user_data.get("image") or ""),
+            role=user_data.get("role", "user"),
         )
+        client.upsert_users(user_req)
         print(f"Stream user upserted successfully:{user_data.get('id')}")
-    except Exception as e:
-        print(f"Error upserting Stream user:{e}")
+    except Exception as err:
+        print(f"Error upserting Stream user:{err}")
+        raise err
 
 
 # Delete Stream user
@@ -37,5 +46,5 @@ async def delete_stream_user(user_id: str):
     try:
         client.users.delete(user_id)
         print(f"Stream user deleted successfully:{user_id}")
-    except Exception as e:
-        print(f"Error deleting the Stream user: {e}")
+    except Exception as err:
+        print(f"Error deleting the Stream user: {err}")
