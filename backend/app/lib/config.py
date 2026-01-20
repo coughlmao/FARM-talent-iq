@@ -28,5 +28,9 @@ class Settings:
     # Initialise clerk secret key
     CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 
+    # Stream Configuration
+    STREAM_API_KEY = os.getenv("STREAM_API_KEY")
+    STREAM_API_SECRET = os.getenv("STREAM_API_KEY")
+
 
 settings = Settings()

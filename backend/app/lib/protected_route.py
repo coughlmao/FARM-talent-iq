@@ -1,10 +1,11 @@
 from typing import Annotated
 
 from clerk_backend_api import Clerk
-from config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from models.user import User
+
+from ..models import User
+from .config import settings
 
 clerk_client = Clerk(bearer_auth=settings.CLERK_SECRET_KEY)
 security = HTTPBearer()
