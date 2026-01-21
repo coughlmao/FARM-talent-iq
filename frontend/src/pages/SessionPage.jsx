@@ -36,8 +36,8 @@ const SessionPage = () => {
   const endSessionMutation = useEndSession();
 
   const session = sessionData?.session;
-  const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participant?.clerkId === user?.id;
+  const isHost = session?.host?.clerk_id === user?.id;
+  const isParticipant = session?.participant?.clerk_id === user?.id;
 
   const { call, channel, chatClient, isInitializingCall, streamClient } =
     useStreamClient(session, loadingSession, isHost, isParticipant);

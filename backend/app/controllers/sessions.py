@@ -106,7 +106,7 @@ async def get_active_sessions():
             .to_list()
         )
 
-        return sessions
+        return {"sessions": sessions}
 
     except Exception as err:
         print(f"Error in get_active_sessions controller: {err}")
@@ -135,7 +135,7 @@ async def get_my_recent_session(current_user: User):
             .to_list()
         )
 
-        return sessions
+        return {"sessions": sessions}
 
     except Exception as err:
         print(f"Error in get_my_recent_sessions controller: {err}")
@@ -159,7 +159,7 @@ async def get_session_by_id(id: str):
                 detail="Session not found",
             )
 
-        return session
+        return {"session": session}
 
     except HTTPException:
         # Check if the error is already a handled 404
@@ -229,7 +229,7 @@ async def join_session(id: str, current_user: User):
         channel = chat_features.channel("messaging", session.call_id)
         await channel.add_members([current_user.clerk_id])
 
-        return session
+        return {"session": session}
 
     except HTTPException:
         # Re-raise without modification
@@ -275,13 +275,13 @@ async def end_session(id: str, current_user: User):
         # Matches: const call = streamClient.video.call("default", session.callId);
         # await call.delete({ hard: true });
         call = video_features.call("default", session.call_id)
-        await call.delete()  # Note: Stream Python SDK delete is often hard-delete by default or check your specific wrapper
+        call.delete()  # Note: Stream Python SDK delete is often hard-delete by default or check your specific wrapper
 
         # 2. Delete Stream Chat Channel
         # Matches: const channel = chatClient.channel("messaging", session.callId);
         # await channel.delete();
         channel = chat_features.channel("messaging", session.call_id)
-        await channel.delete()
+        channel.delete()
 
         # 3. Update Session Status in MongoDB
         # Matches: session.status = "completed"; await session.save();

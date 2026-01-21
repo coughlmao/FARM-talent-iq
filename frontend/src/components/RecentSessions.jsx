@@ -51,7 +51,7 @@ const RecentSessions = ({ sessions, isLoading }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm sm:text-base mb-1 truncate">
-                        {session.problem}
+                        {session.problemTitle || session.problem_title || session.problem}
                       </h3>
                       <span
                         className={`badge badge-sm ${getDifficultyBadgeClass(
@@ -67,9 +67,12 @@ const RecentSessions = ({ sessions, isLoading }) => {
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5" />
                       <span>
-                        {formatDistanceToNow(new Date(session.createdAt), {
-                          addSuffix: true,
-                        })}
+                        {session.created_at || session.createdAt
+                          ? formatDistanceToNow(
+                              new Date(session.created_at || session.createdAt),
+                              { addSuffix: true }
+                            )
+                          : "N/A"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -86,7 +89,11 @@ const RecentSessions = ({ sessions, isLoading }) => {
                       Completed
                     </span>
                     <span className="text-xs opacity-40">
-                      {new Date(session.updatedAt).toLocaleDateString()}
+                      {session.updated_at || session.updatedAt
+                        ? new Date(
+                            session.updated_at || session.updatedAt
+                          ).toLocaleDateString()
+                        : "N/A"}
                     </span>
                   </div>
                 </div>

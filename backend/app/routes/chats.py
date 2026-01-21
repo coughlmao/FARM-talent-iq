@@ -13,4 +13,4 @@ AuthDep = Annotated[User, Depends(protect_route)]
 
 @router.get("/token")
 async def get_unified_stream_token_route(current_user: AuthDep):
-    return get_unified_stream_token()
+    return await get_unified_stream_token(current_user)

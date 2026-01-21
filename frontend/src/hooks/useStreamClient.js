@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { StreamChat } from "stream-chat";
 import toast from "react-hot-toast";
 
@@ -15,104 +15,92 @@ const useStreamClient = (session, loadingSession, isHost, isParticipant) => {
   const [channel, setChannel] = useState(null);
   const [isInitializingCall, setIsInitializingCall] = useState(true);
 
-  const cancelledRef = useRef(false);
-
   useEffect(() => {
     let videoCall = null;
     let chatClientInstance = null;
 
-    cancelledRef.current = false;
-
     const initCall = async () => {
-      if (!session?.callId || session.status === "completed") return;
+      if (!session?.callId) return;
       if (!isHost && !isParticipant) return;
-
-      setIsInitializingCall(true);
+      if (session.status === "completed") return;
 
       try {
-        // 1️⃣ Fetch unified token from backend
         const { token, userId, userName, userImage } =
-          await sessionApi.getUnifiedStreamToken();
+          await sessionApi.getStreamToken();
 
-        if (cancelledRef.current) return;
-
-        // 2️⃣ Initialize video client
-        const vClient = await initializeStreamClient(
-          { id: userId, name: userName, image: userImage },
-          token
+        const client = await initializeStreamClient(
+          {
+            id: userId,
+            name: userName,
+            image: userImage,
+          },
+          token,
         );
 
-        if (cancelledRef.current) return;
-        setStreamClient(vClient);
+        setStreamClient(client);
 
-        // 3️⃣ Join the call (do NOT create)
-        videoCall = vClient.call("default", session.callId);
-        await Promise.race([
-          videoCall.join(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Video join timeout")),
-              10000
-            )
-          ),
-        ]);
-        if (cancelledRef.current) return;
+        videoCall = client.call("default", session.callId);
+        await videoCall.join({ create: true });
         setCall(videoCall);
 
-        // 4️⃣ Connect chat client
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
         chatClientInstance = StreamChat.getInstance(apiKey);
 
-        await Promise.race([
-          chatClientInstance.connectUser(
-            { id: userId, name: userName, image: userImage },
-            token
-          ),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Chat connect timeout")),
-              10000
-            )
-          ),
-        ]);
-        if (cancelledRef.current) return;
+        await chatClientInstance.connectUser(
+          {
+            id: userId,
+            name: userName,
+            image: userImage,
+          },
+          token,
+        );
         setChatClient(chatClientInstance);
 
-        // 5️⃣ Watch the chat channel
         const chatChannel = chatClientInstance.channel(
           "messaging",
-          session.callId
+          session.callId,
         );
         await chatChannel.watch();
-        if (cancelledRef.current) return;
         setChannel(chatChannel);
       } catch (error) {
-        if (!cancelledRef.current) {
-          console.error("Stream init error:", error);
-          toast.error("Failed to join session");
-        }
+        toast.error("Failed to join video call");
+        console.error("Error init call", error);
       } finally {
-        if (!cancelledRef.current) setIsInitializingCall(false);
+        setIsInitializingCall(false);
       }
     };
 
     if (session && !loadingSession) initCall();
 
+    // cleanup - performance reasons
     return () => {
-      cancelledRef.current = true;
-
+      // iife
       (async () => {
         try {
-          if (videoCall) await videoCall.leave();
-          if (chatClientInstance) await chatClientInstance.disconnectUser();
-          // Only disconnect global singleton if you are sure no one else uses it
-          // await disconnectStreamClient();
+          if (videoCall) {
+            try {
+              await videoCall.leave();
+            } catch (err) {
+              // Ignore "already left" errors
+              if (!err.message?.includes("already been left")) {
+                console.error("Error leaving call:", err);
+              }
+            }
+          }
+          if (chatClientInstance) {
+            try {
+              await chatClientInstance.disconnectUser();
+            } catch (err) {
+              console.error("Error disconnecting chat:", err);
+            }
+          }
+          await disconnectStreamClient();
         } catch (error) {
           console.error("Cleanup error:", error);
         }
       })();
     };
-  }, [session, loadingSession, isHost, isParticipant]);
+  }, [session, loadingSession]);
 
   return {
     streamClient,
