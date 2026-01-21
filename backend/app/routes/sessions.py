@@ -10,10 +10,10 @@ from ..controllers.sessions import (
     get_session_by_id,
     join_session,
 )
-from ..lib.protected_route import protect_route
+from ..lib.protect_route import protect_route
 from ..models import User
 
-router = APIRouter(prefix="/api/sessions", tags=["Sessions"])
+router = APIRouter()
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)

@@ -4,21 +4,35 @@ import uuid
 from beanie.operators import Or
 from fastapi import HTTPException, status
 
-from ..lib.stream import chat_features, video_features
+from ..lib.config import settings
+from ..lib.stream import (
+    chat_features,
+    create_stream_token,
+    upsert_stream_user,
+    video_features,
+)
 from ..models.session import Session, SessionStatus
 from ..models.user import User
 
 
 async def create_session(data: dict, current_user: User):
     try:
-        problem = data.get("problem")
+        problemTitle = data.get("problemTitle")
         difficulty = data.get("difficulty")
 
-        if not problem or not difficulty:
+        if not problemTitle or not difficulty:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Problem and difficulty are required",
             )
+
+        await upsert_stream_user(
+            {
+                "id": current_user.clerk_id,
+                "name": current_user.name,
+                "image": current_user.profile_image,
+            }
+        )
 
         timestamp = int(time.time())
         unique_suffix = uuid.uuid4().hex[:12]
@@ -26,7 +40,7 @@ async def create_session(data: dict, current_user: User):
 
         # 1. Create Session in MongoDB
         new_session = Session(
-            problem=problem,
+            problemTitle=problemTitle,
             difficulty=difficulty,
             host=current_user,
             call_id=call_id,
@@ -35,28 +49,36 @@ async def create_session(data: dict, current_user: User):
 
         # 2. Create Video Call in Stream
         call = video_features.call("default", call_id)
-        await call.get_or_create(
+        call.get_or_create(
             data={
                 "created_by_id": current_user.clerk_id,
                 "custom": {
-                    "problem": problem,
+                    "problemTitle": problemTitle,
                     "difficulty": difficulty,
-                    "sessionId": str(new_session.id),
+                    "session_id": str(new_session.id),
                 },
-            }
+            },
         )
 
         # Create Chat messaging Channel in Stream
         channel = chat_features.channel("messaging", call_id)
-        await channel.create(
-            user_id=current_user.clerk_id,
+        channel.get_or_create(
             data={
-                "name": f"{problem} Session",
+                "name": f"{problemTitle} Session",
                 "members": [current_user.clerk_id],
+                "created_by_id": current_user.clerk_id,
             },
+            hide_for_creator=False,
         )
 
-        return new_session
+        stream_token = create_stream_token(current_user.clerk_id)
+
+        return {
+            "session": new_session,
+            "stream_token": stream_token,
+            "stream_api_key": settings.STREAM_API_KEY,
+            "user_id": current_user.clerk_id,
+        }
 
     except HTTPException:
         raise
@@ -64,7 +86,7 @@ async def create_session(data: dict, current_user: User):
         print(f"Error in create_session: {err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail=f"Session creation failed: {str(err)}",
         ) from err
 
 
@@ -84,7 +106,7 @@ async def get_active_sessions():
             .to_list()
         )
 
-        return sessions
+        return {"sessions": sessions}
 
     except Exception as err:
         print(f"Error in get_active_sessions controller: {err}")
@@ -113,7 +135,7 @@ async def get_my_recent_session(current_user: User):
             .to_list()
         )
 
-        return sessions
+        return {"sessions": sessions}
 
     except Exception as err:
         print(f"Error in get_my_recent_sessions controller: {err}")
@@ -137,7 +159,7 @@ async def get_session_by_id(id: str):
                 detail="Session not found",
             )
 
-        return session
+        return {"session": session}
 
     except HTTPException:
         # Check if the error is already a handled 404
@@ -207,7 +229,7 @@ async def join_session(id: str, current_user: User):
         channel = chat_features.channel("messaging", session.call_id)
         await channel.add_members([current_user.clerk_id])
 
-        return session
+        return {"session": session}
 
     except HTTPException:
         # Re-raise without modification
@@ -249,11 +271,26 @@ async def end_session(id: str, current_user: User):
                 detail="Session is already completed",
             )
 
-        # 5 Update session status
+        # 1. Delete Stream Video Call
+        # Matches: const call = streamClient.video.call("default", session.callId);
+        # await call.delete({ hard: true });
+        call = video_features.call("default", session.call_id)
+        call.delete()  # Note: Stream Python SDK delete is often hard-delete by default or check your specific wrapper
+
+        # 2. Delete Stream Chat Channel
+        # Matches: const channel = chatClient.channel("messaging", session.callId);
+        # await channel.delete();
+        channel = chat_features.channel("messaging", session.call_id)
+        channel.delete()
+
+        # 3. Update Session Status in MongoDB
+        # Matches: session.status = "completed"; await session.save();
         session.status = SessionStatus.completed
         await session.save()
 
-        return {"message": "Session ended successfully", "session": session}
+        # 4. Success Response
+        # Matches: res.status(200).json({ session, message: "Session ended successfully" });
+        return {"session": session, "message": "Session ended successfully"}
 
     except HTTPException:
         # Re-raise handled HTTP errors
@@ -265,24 +302,3 @@ async def end_session(id: str, current_user: User):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         ) from err
-
-        # 1. Delete Stream Video Call
-        # Matches: const call = streamClient.video.call("default", session.callId);
-        # await call.delete({ hard: true });
-        call = video_features.call("default", session.call_id)
-        await call.delete()  # Note: Stream Python SDK delete is often hard-delete by default or check your specific wrapper
-
-        # 2. Delete Stream Chat Channel
-        # Matches: const channel = chatClient.channel("messaging", session.callId);
-        # await channel.delete();
-        channel = chat_features.channel("messaging", session.call_id)
-        await channel.delete()
-
-        # 3. Update Session Status in MongoDB
-        # Matches: session.status = "completed"; await session.save();
-        session.status = SessionStatus.completed
-        await session.save()
-
-        # 4. Success Response
-        # Matches: res.status(200).json({ session, message: "Session ended successfully" });
-        return {"session": session, "message": "Session ended successfully"}

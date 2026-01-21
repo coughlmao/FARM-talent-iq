@@ -10,8 +10,8 @@ from fastapi.responses import FileResponse
 from .lib.config import settings
 from .lib.db import close_db, connect_db
 from .lib.inngest import delete_user, inngest_client, sync_user
-from .routes.chats import router as chatRoutes
-from .routes.sessions import router as sessionRoutes
+from .routes.chats import router as chat_routes
+from .routes.sessions import router as session_routes
 
 
 @asynccontextmanager
@@ -50,17 +50,11 @@ inngest.fast_api.serve(
     app, inngest_client, [sync_user, delete_user], serve_path="/api/inngest"
 )
 
-# API routes FIRST
-app.include_router(chatRoutes, prefix="/api/chats")
-app.include_router(sessionRoutes, prefix="/api/sessions")
+# API routes
+app.include_router(session_routes, prefix="/api/sessions", tags=["Sessions"])
+app.include_router(chat_routes, prefix="/api/chats", tags=["Chats"])
 
 # ---------- FRONTEND ----------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_BUILD_PATH = os.path.abspath(os.path.join(BASE_DIR, "../../frontend/dist"))
-
-print("FRONTEND_BUILD_PATH =", FRONTEND_BUILD_PATH)
-print("FILES =", os.listdir(FRONTEND_BUILD_PATH))
-
 if settings.ENV_TYPE == "production":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     FRONTEND_BUILD_PATH = os.path.abspath(os.path.join(BASE_DIR, "../../frontend/dist"))
