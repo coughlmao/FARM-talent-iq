@@ -6,3 +6,5 @@ gunicorn
 inngest
 pymongo
 python-jose
+prometheus-client
+prometheus-fastapi-instrumentator

@@ -133,6 +133,12 @@ platformdirs==4.5.1
     # via virtualenv
 pre-commit==4.5.1
     # via -r requirements/dev.in
+prometheus-client==0.24.1
+    # via
+    #   -r requirements/base.in
+    #   prometheus-fastapi-instrumentator
+prometheus-fastapi-instrumentator==7.1.0
+    # via -r requirements/base.in
 protobuf==6.33.4
     # via
     #   getstream
@@ -217,7 +223,9 @@ six==1.17.0
     #   ecdsa
     #   python-dateutil
 starlette==0.50.0
-    # via fastapi
+    # via
+    #   fastapi
+    #   prometheus-fastapi-instrumentator
 structlog==25.5.0
     # via twirp
 twirp==0.0.7
