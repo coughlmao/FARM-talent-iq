@@ -1,12 +1,16 @@
+from typing import Any
+
 import httpx
 from jose import jwt
 
-from app.lib.config import settings
+from app.core.config import settings
 
-_jwks_cache = None
+_jwks_cache: dict[str, Any] | None = None
 
 
-async def get_clerk_Jwks(token: str):
+async def get_clerk_signing_key(
+    token: str,
+) -> dict[str, Any]:
     """
     Fetch JWKS from Clerk Frontend API with caching.
     Uses async httpx instead of requests for non-blocking calls.
@@ -26,4 +30,4 @@ async def get_clerk_Jwks(token: str):
         if key.get("kid") == kid:
             return key
 
-    raise Exception("Public key not found in JWKS")
+    raise ValueError("Public key not found in JWKS")

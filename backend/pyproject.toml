@@ -1,4 +1,26 @@
-# pyproject.toml
+[project]
+name = "backend"
+version = "0.1.0"
+description = "FastAPI Backend"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "beanie>=2.1.0",
+    "clerk-backend-api>=6.0.1",
+    "fastapi[standard]>=0.139.0",
+    "getstream>=3.5.0",
+    "inngest>=0.5.19",
+    "pymongo>=4.17.0",
+    "python-jose>=3.5.0",
+    "uvicorn[standard]>=0.50.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.20",
+]
 
 [tool.ruff]
 # Target Python version
@@ -6,12 +28,51 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
-# E/W: pycodestyle, F: Pyflakes, I: isort (imports), UP: pyupgrade
-# B: bugbear, SIM: simplifier, C4: flake8-comprehensions
-select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
-ignore = ["E501"] # Ignore line-length in linter (handled by formatter)
+select = [
+    # pycodestyle
+    "E",
+
+    # Pyflakes
+    "F",
+
+    # isort
+    "I",
+
+    # pyupgrade
+    "UP",
+
+    # flake8-bugbear
+    "B",
+
+    # simplify
+    "SIM",
+
+    # comprehensions
+    "C4",
+
+    # PEP8 naming
+    "N",
+
+    # return statements
+    "RET",
+
+    # unnecessary code
+    "RUF",
+]
+ignore = [
+    # handled by formatter
+    "E501",
+]
 fixable = ["ALL"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
