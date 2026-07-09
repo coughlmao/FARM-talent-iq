@@ -173,11 +173,9 @@ The platform integrates **Clerk for authentication**, **Stream.io for video/chat
 
 ```bash
 cd backend
-python -m venv .venv
 .venv\Scripts\activate  # Windows
 # source .venv/bin/activate  # macOS/Linux
-
-pip install -r requirements/base.txt
+uv sync
 ```
 
 Create `.env` in `backend/`:
@@ -194,7 +192,7 @@ ENV_TYPE=development
 
 Start:
 ```bash
-fastapi dev app/main.py
+uv run fastapi dev app/main.py
 ```
 
 Backend: http://localhost:8000 | Docs: http://localhost:8000/docs
@@ -264,12 +262,18 @@ The project includes `render.yaml` for one-click deployment:
 ```
 backend/
   ├── app/
-  │   ├── main.py
-  │   ├── controllers/      # Business logic
-  │   ├── routes/           # API endpoints
-  │   ├── models/           # MongoDB schemas
-  │   └── lib/              # Integrations (Clerk, Stream, etc.)
-  └── requirements/         # Dependencies (base.txt, dev.txt)
+  │   ├── /api
+  │   ├── /core             # Routes
+  │   ├── /dependencies     # Auth
+  │   ├── /integrations     # 3rd Party Services
+  │   ├── /models           # MongoDB Models
+  │   ├── /repositories     # MongoDB Operations
+  │   ├── /schemas          # Pydantic schemas
+  │   ├── /services         # Business Logic
+  │   └── main.py           # Main file
+  │   └── web.py            
+  └── pyproject.toml        # Dependencies and Ruff
+  └── uv.lock               # Dependencies versions
 
 frontend/
   ├── src/
