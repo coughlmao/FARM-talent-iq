@@ -1,59 +1,63 @@
-import time
-import uuid
-
-from beanie.operators import Or
+from beanie import PydanticObjectId
 from fastapi import HTTPException, status
 
-from ..lib.config import settings
-from ..lib.stream import (
-    chat_features,
-    create_stream_token,
-    upsert_stream_user,
-    video_features,
+from app.core.config import settings
+from app.core.logger import logger
+from app.models.session import Session, SessionStatus
+from app.models.user import User
+from app.repositories.session import (
+    create,
+    get_by_id,
+    list_active,
+    list_recent,
+    save,
 )
-from ..models.session import Session, SessionStatus
-from ..models.user import User
+from app.schemas.session import (
+    SessionCreateRequest,
+    SessionCreateResponse,
+    SessionDetailResponse,
+    SessionEndResponse,
+    SessionJoinResponse,
+    SessionListResponse,
+)
+
+from .session_ids import generate_call_id
+from .stream import (
+    build_stream_token,
+    get_chat_channel,
+    get_video_call,
+    upsert_stream_user,
+)
 
 
-async def create_session(data: dict, current_user: User):
+async def create_session(
+    data: SessionCreateRequest,
+    current_user: User,
+) -> SessionCreateResponse:
     try:
-        problemTitle = data.get("problemTitle")
-        difficulty = data.get("difficulty")
+        problem_title = data.problem_title
+        difficulty = data.difficulty
 
-        if not problemTitle or not difficulty:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Problem and difficulty are required",
-            )
+        await upsert_stream_user(current_user)
 
-        await upsert_stream_user(
-            {
-                "id": current_user.clerk_id,
-                "name": current_user.name,
-                "image": current_user.profile_image,
-            }
-        )
-
-        timestamp = int(time.time())
-        unique_suffix = uuid.uuid4().hex[:12]
-        call_id = f"session_{timestamp}_{unique_suffix}"
+        call_id = generate_call_id()
 
         # 1. Create Session in MongoDB
         new_session = Session(
-            problemTitle=problemTitle,
+            problem_title=problem_title,
             difficulty=difficulty,
             host=current_user,
             call_id=call_id,
         )
-        await new_session.create()
+        await create(new_session)
 
         # 2. Create Video Call in Stream
-        call = video_features.call("default", call_id)
+        call = get_video_call(call_id)
         call.get_or_create(
             data={
                 "created_by_id": current_user.clerk_id,
                 "custom": {
-                    "problemTitle": problemTitle,
+                    "problemTitle": problem_title,
                     "difficulty": difficulty,
                     "session_id": str(new_session.id),
                 },
@@ -61,32 +65,34 @@ async def create_session(data: dict, current_user: User):
         )
 
         # Create Chat messaging Channel in Stream
-        channel = chat_features.channel("messaging", call_id)
+        channel = get_chat_channel(call_id)
         channel.get_or_create(
             data={
-                "name": f"{problemTitle} Session",
+                "name": f"{problem_title} Session",
                 "members": [current_user.clerk_id],
                 "created_by_id": current_user.clerk_id,
             },
             hide_for_creator=False,
         )
 
-        stream_token = create_stream_token(current_user.clerk_id)
+        stream_token = build_stream_token(current_user)
 
-        return {
-            "session": new_session,
-            "stream_token": stream_token,
-            "stream_api_key": settings.STREAM_API_KEY,
-            "user_id": current_user.clerk_id,
-        }
+        return SessionCreateResponse(
+            session=new_session,
+            stream_token=stream_token,
+            stream_api_key=settings.STREAM_API_KEY,
+            user_id=current_user.clerk_id,
+        )
 
     except HTTPException:
         raise
+
     except Exception as err:
-        print(f"Error in create_session: {err}")
+        logger.exception("Failed to create session.")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Session creation failed: {str(err)}",
+            detail="Session creation failed.",
         ) from err
 
 
@@ -94,89 +100,86 @@ async def create_session(data: dict, current_user: User):
 # Query with Filters, Sorting, and Limits
 # sort("-created_at") matches .sort({ createdAt: -1 })
 # fetch_links=True matches .populate() for host and participant
-async def get_active_sessions():
+async def list_active_sessions() -> SessionListResponse:
     try:
-        sessions = (
-            await Session.find(
-                Session.status == SessionStatus.active,
-                fetch_links=True,
-            )
-            .sort("-created_at")
-            .limit(20)
-            .to_list()
+        sessions = await list_active()
+
+        return SessionListResponse(
+            sessions=sessions,
         )
 
-        return {"sessions": sessions}
-
     except Exception as err:
-        print(f"Error in get_active_sessions controller: {err}")
+        logger.exception("Failed to fetch active sessions.")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail="Fetching active session failed.",
         ) from err
 
 
 # Get recent sessions for current user
-async def get_my_recent_session(current_user: User):
+async def list_recent_sessions(
+    current_user: User,
+) -> SessionListResponse:
     try:
         # get sessions where user is either host or participant and status is completed
         # fetch_links=True is used if you want to populate host/participant data
-        sessions = (
-            await Session.find(
-                Session.status == SessionStatus.completed,
-                Or(
-                    Session.host.id == current_user.id,
-                    Session.participant.id == current_user.id,
-                ),
-                fetch_links=True,
-            )
-            .sort("-created_at")
-            .limit(20)
-            .to_list()
+        sessions = await list_recent(current_user)
+
+        return SessionListResponse(
+            sessions=sessions,
         )
 
-        return {"sessions": sessions}
-
     except Exception as err:
-        print(f"Error in get_my_recent_sessions controller: {err}")
+        logger.exception("Failed to fetch recent sessions.")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail="Fetching recent sessions failed.",
         ) from err
 
 
 # Get session by ID
-async def get_session_by_id(id: str):
+async def get_session(
+    session_id: PydanticObjectId,
+) -> SessionDetailResponse:
     try:
         # Fetch by ID and populate links
         # .get() is the equivalent of Mongoose.findById()
         #   fetch_links=true handles the .populate() for host and participant
-        session = await Session.get(id, fetch_links=True)
+        session = await get_by_id(session_id)
 
-        if not session:
+        if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found",
             )
 
-        return {"session": session}
+        return SessionDetailResponse(
+            session=session,
+        )
 
     except HTTPException:
         # Check if the error is already a handled 404
         raise
+
     except Exception as err:
-        print(f"Error in get_session_by_id controller: {err}")
+        logger.exception("Failed to fetch session.")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail="Session fetching failed.",
         ) from err
 
 
 # Joining session
-async def join_session(id: str, current_user: User):
+async def join_session(
+    session_id: PydanticObjectId,
+    current_user: User,
+) -> SessionJoinResponse:
     try:
-        # Fetch the session and populate links(similiar to .findById(id))
-        session = await Session.get(id, fetch_links=True)
+        # Fetch the session and populate links(similiar to .findById(session_id))
+        session = await get_by_id(session_id)
 
         # Check existence
         if not session:
@@ -185,7 +188,7 @@ async def join_session(id: str, current_user: User):
                 detail="Session not found",
             )
 
-        if session.status != SessionStatus.active:
+        if session.status != SessionStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot join a completed session",
@@ -201,13 +204,14 @@ async def join_session(id: str, current_user: User):
 
     except HTTPException:
         raise
+
     except Exception as err:
         # Catch unexpected error(DB connection,Stream API failure,etc)
+        logger.exception("Failed while validating join request..")
 
-        print(f"Error in join_session controller: {err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail="Session joining failed.",
         ) from err
 
     # Check if session is already full(has a partcipant)
@@ -219,41 +223,48 @@ async def join_session(id: str, current_user: User):
 
     # Update participant in MongoDB
     session.participant = current_user
-    await session.save()
+    await save(session)
 
     # 3. Add member to Stream Chat Channel
     # Note: Using your existing 'chat_features' and 'session.call_id'
 
     try:
         # Stream logic
-        channel = chat_features.channel("messaging", session.call_id)
+        channel = get_chat_channel(session.call_id)
         await channel.add_members([current_user.clerk_id])
 
-        return {"session": session}
+        return SessionJoinResponse(
+            session=session,
+        )
 
     except HTTPException:
         # Re-raise without modification
         raise
+
     except Exception as error:
         # Log exactly like your Node.js code
-        print(f"Error in joinSession controller: {str(error)}")
+        logger.exception("Failed while updating Stream channel.")
 
         # Use 'from error' to keep the exception chain for the Stream failure
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error",
+            detail="Failed to join session.",
         ) from error
 
 
 # end session
-async def end_session(id: str, current_user: User):
+async def end_session(
+    session_id: PydanticObjectId,
+    current_user: User,
+) -> SessionEndResponse:
     try:
-        session = await Session.get(id, fetch_links=True)
+        session = await get_by_id(session_id)
 
         # Check if session exists
         if not session:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
             )
 
         # Check if user is the host
@@ -265,7 +276,7 @@ async def end_session(id: str, current_user: User):
             )
 
         # Check if session is already completed
-        if session.status == SessionStatus.completed:
+        if session.status == SessionStatus.COMPLETED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Session is already completed",
@@ -274,31 +285,36 @@ async def end_session(id: str, current_user: User):
         # 1. Delete Stream Video Call
         # Matches: const call = streamClient.video.call("default", session.callId);
         # await call.delete({ hard: true });
-        call = video_features.call("default", session.call_id)
+        call = get_video_call(session.call_id)
         call.delete()  # Note: Stream Python SDK delete is often hard-delete by default or check your specific wrapper
 
         # 2. Delete Stream Chat Channel
         # Matches: const channel = chatClient.channel("messaging", session.callId);
         # await channel.delete();
-        channel = chat_features.channel("messaging", session.call_id)
+        channel = get_chat_channel(session.call_id)
         channel.delete()
 
         # 3. Update Session Status in MongoDB
         # Matches: session.status = "completed"; await session.save();
-        session.status = SessionStatus.completed
-        await session.save()
+        session.status = SessionStatus.COMPLETED
+        await save(session)
 
         # 4. Success Response
         # Matches: res.status(200).json({ session, message: "Session ended successfully" });
-        return {"session": session, "message": "Session ended successfully"}
+        return SessionEndResponse(
+            session=session,
+            message="Session ended successfully",
+        )
 
     except HTTPException:
         # Re-raise handled HTTP errors
         raise
+
     except Exception as err:
         # Log the error and raise 500
-        print(f"Error in end_session controller : {str(err)}")
+        logger.exception("Failed to end session.")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
+            detail="Session ending failed.",
         ) from err

@@ -1,20 +1,17 @@
-from datetime import UTC, datetime
 from typing import Annotated  # for modern Python type hinting
 
-from beanie import Document, Indexed
-from pydantic import EmailStr, Field
+from beanie import Indexed
+from pydantic import EmailStr
+
+from .base import BaseDocument
 
 
-class User(Document):
+class User(BaseDocument):
     # Use Annotated with Indexed for the most reliable index creation
     clerk_id: Annotated[str, Indexed(unique=True)]
     email: EmailStr
     name: str
     profile_image: str = ""
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
     class Settings:
         name = "users"  # MongoDB collection name
-        validate_on_save = True
