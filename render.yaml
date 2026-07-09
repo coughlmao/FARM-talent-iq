@@ -5,6 +5,9 @@ services:
     rootDir: backend
 
     buildCommand: |
+      python -m pip install --upgrade pip
+      python -m pip install uv
+
       cd ../frontend
       npm ci
       npm run build
