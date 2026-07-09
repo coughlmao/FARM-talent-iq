@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, Response
 from app.core.config import settings
 
 APP_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = APP_DIR.parent
+PROJECT_ROOT = APP_DIR.parent.parent
 
 FRONTEND_DIR = PROJECT_ROOT / "frontend" / "dist"
 INDEX_FILE = FRONTEND_DIR / "index.html"
