@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +13,7 @@ class Settings(BaseSettings):
 
     PORT: int = 8000
 
-    CLIENT_URL: AnyHttpUrl
+    CLIENT_URL: str
 
     MONGO_URI: str
 

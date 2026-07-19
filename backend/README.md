@@ -143,7 +143,6 @@ uv run ruff format .
 
 ---
 
-
 ## Project Scripts
 
 | Command | Description |
@@ -185,13 +184,13 @@ app/
 uv sync --group dev
 ```
 
-3. Start the development server.
+1. Start the development server.
 
 ```bash
 uv run fastapi dev app/main.py
 ```
 
-4. Before committing:
+1. Before committing:
 
 ```bash
 uv run ruff check --fix .
