@@ -7,17 +7,8 @@ from app.core.config import settings
 def configure_middleware(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(settings.CLIENT_URL)],
-        allow_methods=[
-            "GET",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE",
-            "OPTIONS",
-        ],
-        allow_headers=[
-            "Authorization",
-            "Content-Type",
-        ],
+        allow_origins=[settings.CLIENT_URL],
+        allow_credentials=True,  # Crucial for session/auth endpoints
+        allow_methods=["*"],  # Permits all necessary HTTP verbs
+        allow_headers=["*"],  # Prevents unexpected header rejections
     )

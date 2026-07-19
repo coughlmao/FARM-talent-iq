@@ -19,6 +19,7 @@ from app.schemas.session import (
     SessionEndResponse,
     SessionJoinResponse,
     SessionListResponse,
+    SessionRead,
 )
 
 from .session_ids import generate_call_id
@@ -39,10 +40,9 @@ async def create_session(
         difficulty = data.difficulty
 
         await upsert_stream_user(current_user)
-
         call_id = generate_call_id()
 
-        # 1. Create Session in MongoDB
+        # 1. Create Session in MongoDB via Beanie
         new_session = Session(
             problem_title=problem_title,
             difficulty=difficulty,
@@ -51,20 +51,19 @@ async def create_session(
         )
         await create(new_session)
 
-        # 2. Create Video Call in Stream
+        # 2. Sync Video Call & Chat Resource Channels
         call = get_video_call(call_id)
         call.get_or_create(
             data={
                 "created_by_id": current_user.clerk_id,
                 "custom": {
+                    "sessionId": str(new_session.id),
                     "problemTitle": problem_title,
                     "difficulty": difficulty,
-                    "session_id": str(new_session.id),
                 },
             },
         )
 
-        # Create Chat messaging Channel in Stream
         channel = get_chat_channel(call_id)
         channel.get_or_create(
             data={
@@ -77,19 +76,34 @@ async def create_session(
 
         stream_token = build_stream_token(current_user)
 
-        return SessionCreateResponse(
-            session=new_session,
-            stream_token=stream_token,
-            stream_api_key=settings.STREAM_API_KEY,
-            user_id=current_user.clerk_id,
+        # 3. Build identical Mongoose output payload dictionary
+        session_payload = {
+            "id": str(new_session.id),
+            "_id": str(new_session.id),
+            "problemTitle": new_session.problem_title,
+            "difficulty": new_session.difficulty,
+            "status": new_session.status,
+            "callId": new_session.call_id,
+            "host": new_session.host,
+            "participant": new_session.participant,
+            "createdAt": new_session.created_at,
+            "updatedAt": new_session.updated_at,
+        }
+
+        # 4. Serialize cleanly
+        return SessionCreateResponse.model_validate(
+            {
+                "session": SessionRead.model_validate(session_payload),
+                "streamToken": stream_token,
+                "streamApiKey": settings.STREAM_API_KEY,
+                "userId": current_user.clerk_id,
+            }
         )
 
     except HTTPException:
         raise
-
     except Exception as err:
         logger.exception("Failed to create session.")
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Session creation failed.",
@@ -105,12 +119,27 @@ async def list_active_sessions() -> SessionListResponse:
         sessions = await list_active()
 
         return SessionListResponse(
-            sessions=sessions,
+            sessions=[
+                SessionRead.model_validate(
+                    {
+                        "id": str(s.id),
+                        "_id": str(s.id),
+                        "problemTitle": s.problem_title,
+                        "difficulty": s.difficulty,
+                        "status": s.status,
+                        "callId": s.call_id,
+                        "host": s.host,
+                        "participant": s.participant,
+                        "createdAt": s.created_at,
+                        "updatedAt": s.updated_at,
+                    }
+                )
+                for s in sessions
+            ]
         )
 
     except Exception as err:
         logger.exception("Failed to fetch active sessions.")
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Fetching active session failed.",
@@ -127,7 +156,23 @@ async def list_recent_sessions(
         sessions = await list_recent(current_user)
 
         return SessionListResponse(
-            sessions=sessions,
+            sessions=[
+                SessionRead.model_validate(
+                    {
+                        "id": str(s.id),
+                        "_id": str(s.id),
+                        "problemTitle": s.problem_title,
+                        "difficulty": s.difficulty,
+                        "status": s.status,
+                        "callId": s.call_id,
+                        "host": s.host,
+                        "participant": s.participant,
+                        "createdAt": s.created_at,
+                        "updatedAt": s.updated_at,
+                    }
+                )
+                for s in sessions
+            ]
         )
 
     except Exception as err:
@@ -155,8 +200,22 @@ async def get_session(
                 detail="Session not found",
             )
 
+        session_data = {
+            "id": str(session.id),
+            "_id": str(session.id),
+            "problemTitle": session.problem_title,
+            "difficulty": session.difficulty,
+            "status": session.status,
+            "callId": session.call_id,
+            "host": session.host,
+            "participant": session.participant,
+            "createdAt": session.created_at,
+            "updatedAt": session.updated_at,
+        }
+
+        # Validate cleanly using the schema we built
         return SessionDetailResponse(
-            session=session,
+            session=SessionRead.model_validate(session_data),
         )
 
     except HTTPException:
@@ -188,18 +247,30 @@ async def join_session(
                 detail="Session not found",
             )
 
+        # If the host triggers this route on auto-redirect, immediately approve it
+        if str(session.host.id) == str(current_user.id):
+            return SessionJoinResponse(
+                session=session,
+            )
+
         if session.status != SessionStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot join a completed session",
             )
 
-        # Prevent host from joining own session (session.host.ttoString() === userId.toString())
-        # We compare the IDs directly as Beanie handles the ObjectId object
-        if str(session.host.id) == str(current_user.id):
+        # 🔒 PARTICIPANT LIFECYCLE LOCK:
+        # If a participant has already taken the slot and left/disconnected, block them permanently
+        if session.participant:
+            if str(session.participant.id) == str(current_user.id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You have already joined and left this session. Re-entry is denied.",
+                )
+
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host cannot join their own session as participant",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Session is full",
             )
 
     except HTTPException:
@@ -214,19 +285,9 @@ async def join_session(
             detail="Session joining failed.",
         ) from err
 
-    # Check if session is already full(has a partcipant)
-    if session.participant:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Session is full",
-        )
-
     # Update participant in MongoDB
     session.participant = current_user
     await save(session)
-
-    # 3. Add member to Stream Chat Channel
-    # Note: Using your existing 'chat_features' and 'session.call_id'
 
     try:
         # Stream logic
@@ -299,10 +360,22 @@ async def end_session(
         session.status = SessionStatus.COMPLETED
         await save(session)
 
-        # 4. Success Response
-        # Matches: res.status(200).json({ session, message: "Session ended successfully" });
+        # 4. Enforce structural integrity validation wrapper for the frontend
+        session_data = {
+            "id": str(session.id),
+            "_id": str(session.id),
+            "problemTitle": session.problem_title,
+            "difficulty": session.difficulty,
+            "status": session.status,
+            "callId": session.call_id,
+            "host": session.host,
+            "participant": session.participant,
+            "createdAt": session.created_at,
+            "updatedAt": session.updated_at,
+        }
+
         return SessionEndResponse(
-            session=session,
+            session=SessionRead.model_validate(session_data),
             message="Session ended successfully",
         )
 
