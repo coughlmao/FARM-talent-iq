@@ -11,7 +11,7 @@ import {
   useSessionById,
 } from "../hooks/useSessions.js";
 import { PROBLEMS } from "../data/problems.js";
-import { executeCode } from "../lib/piston.js";
+import { executeCode } from "../lib/executionService.js";
 import Navbar from "../components/Navbar.jsx";
 import { getDifficultyBadgeClass } from "../lib/utils.js";
 import CodeEditorPanel from "../components/CodeEditorPanel.jsx";
@@ -210,13 +210,13 @@ const SessionPage = () => {
                                 </div>
                                 <div className="bg-base-200 rounded-lg p-4 font-mono text-sm space-y-1.5">
                                   <div className="flex gap-2">
-                                    <span className="text-primary font-bold min-w-[70px]">
+                                    <span className="text-primary font-bold min-w-17.5">
                                       Input:
                                     </span>
                                     <span>{example.input}</span>
                                   </div>
                                   <div className="flex gap-2">
-                                    <span className="text-secondary font-bold min-w-[70px]">
+                                    <span className="text-secondary font-bold min-w-17.5">
                                       Output:
                                     </span>
                                     <span>{example.output}</span>
