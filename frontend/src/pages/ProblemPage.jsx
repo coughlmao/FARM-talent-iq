@@ -9,7 +9,7 @@ import Navbar from "../components/Navbar.jsx";
 import ProblemDescription from "../components/ProblemDescription.jsx";
 import CodeEditorPanel from "../components/CodeEditorPanel.jsx";
 import OutputPanel from "../components/OutputPanel.jsx";
-import { executeCode } from "../lib/piston.js";
+import { executeCode } from "../lib/executionService.js";
 
 const ProblemPage = () => {
   const { id } = useParams();
